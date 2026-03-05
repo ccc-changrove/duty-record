@@ -99,7 +99,7 @@
   <div class="nav-tab active"  onclick="switchTab('input')">活動輸入</div>
   <div class="nav-tab" onclick="switchTab('detail')">活動明細</div>
   <div class="nav-tab" onclick="switchTab('ranking')">總排名</div>
-  <div class="nav-tab" onclick="switchTab('personal')">個人積分</div>
+  <div class="nav-tab" onclick="switchTab('personal')">個人紀錄</div>
   <div class="nav-tab" onclick="switchTab('settings')">分類設定</div>
   <div class="nav-tab" onclick="switchTab('manage')">🗑️ 管理紀錄</div>
 </nav>
@@ -163,10 +163,10 @@
     </div>
   </div>
 
-  <!-- 個人積分 -->
+  <!-- 個人紀錄 -->
   <div id="page-personal" class="page">
     <div class="card">
-      <div class="card-title">個人積分查詢</div>
+      <div class="card-title">個人紀錄查詢</div>
       <div class="search-bar">
         <select id="personal-sel" onchange="showPersonal()">
           <option value="">── 請選擇義工 ──</option>
@@ -436,7 +436,7 @@ function filterDetail() {
   document.getElementById('detail-table').innerHTML=html;
 }
 
-// ══ 個人積分 ══════════════════════════════════════════
+// ══ 個人紀錄 ══════════════════════════════════════════
 async function loadPersonalList() {
   try {
     const scores = await apiGet('scores');
