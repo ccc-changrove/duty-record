@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>執事積分系統</title>
+<style>
+  :root {
+    --primary:#4F46E5; --primary-light:#EEF2FF; --primary-dark:#3730A3;
+    --success:#10B981; --danger:#EF4444;
+    --gray-50:#F9FAFB; --gray-100:#F3F4F6; --gray-200:#E5E7EB;
+    --gray-300:#D1D5DB; --gray-500:#6B7280; --gray-700:#374151; --gray-900:#111827;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Microsoft JhengHei',Arial,sans-serif;background:var(--gray-100);color:var(--gray-900);}
+  .navbar{background:var(--primary);padding:0 20px;display:flex;align-items:center;gap:0;box-shadow:0 2px 8px rgba(79,70,229,0.3);flex-wrap:wrap;}
+  .navbar-title{color:white;font-size:17px;font-weight:700;padding:14px 20px 14px 0;border-right:1px solid rgba(255,255,255,0.2);margin-right:8px;}
+  .nav-tab{color:rgba(255,255,255,0.75);padding:14px 16px;cursor:pointer;font-size:13px;border-bottom:3px solid transparent;transition:all 0.2s;white-space:nowrap;}
+  .nav-tab:hover{color:white;background:rgba(255,255,255,0.1);}
+  .nav-tab.active{color:white;border-bottom-color:white;font-weight:600;}
+  .container{max-width:1100px;margin:0 auto;padding:24px 16px;}
+  .page{display:none;} .page.active{display:block;}
+  .card{background:white;border-radius:12px;padding:22px;box-shadow:0 1px 4px rgba(0,0,0,0.08);margin-bottom:18px;}
+  .card-title{font-size:15px;font-weight:700;color:var(--gray-700);margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid var(--gray-100);}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .form-group{display:flex;flex-direction:column;gap:5px;}
+  label{font-size:13px;font-weight:600;color:var(--gray-700);}
+  input[type="text"],input[type="date"],input[type="number"],select{border:1.5px solid var(--gray-200);border-radius:8px;padding:8px 11px;font-size:14px;font-family:inherit;transition:border-color 0.2s;background:white;width:100%;}
+  input:focus,select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(79,70,229,0.1);}
+  .duty-sections{display:flex;flex-direction:column;gap:10px;border:1.5px solid var(--gray-200);border-radius:8px;padding:12px;background:var(--gray-50);}
+  .duty-section{background:white;border-radius:8px;padding:10px 12px;border:1px solid var(--gray-200);}
+  .duty-section-title{font-size:12px;font-weight:700;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;gap:6px;}
+  .duty-items-row{display:flex;flex-wrap:wrap;gap:6px;}
+  .duty-item{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;cursor:pointer;background:var(--gray-50);border:1.5px solid var(--gray-200);transition:all 0.15s;}
+  .duty-item:hover{background:var(--primary-light);border-color:var(--primary);}
+  .duty-item.checked{background:var(--primary-light);border-color:var(--primary);}
+  .duty-item input[type="checkbox"]{width:14px;height:14px;cursor:pointer;accent-color:var(--primary);flex-shrink:0;}
+  .duty-badge{font-size:10px;padding:1px 5px;border-radius:99px;font-weight:600;flex-shrink:0;}
+  .cat-1{background:#DBEAFE;color:#1D4ED8;} .cat-2{background:#D1FAE5;color:#065F46;}
+  .cat-3{background:#FEF3C7;color:#92400E;} .cat-4{background:#FCE7F3;color:#9D174D;}
+  .cat-5{background:#EDE9FE;color:#5B21B6;}
+  .btn{padding:8px 18px;border-radius:8px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:inherit;}
+  .btn-primary{background:var(--primary);color:white;} .btn-primary:hover{background:var(--primary-dark);}
+  .btn-success{background:var(--success);color:white;} .btn-success:hover{background:#059669;}
+  .btn-danger{background:var(--danger);color:white;font-size:11px;padding:4px 9px;}
+  .btn-outline{background:white;border:1.5px solid var(--gray-200);color:var(--gray-700);}
+  .btn-outline:hover{background:var(--gray-50);}
+  .btn-sm{padding:5px 11px;font-size:12px;} .btn:disabled{opacity:0.5;cursor:not-allowed;}
+  .alert{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;}
+  .alert-success{background:#D1FAE5;color:#065F46;border:1px solid #A7F3D0;}
+  .alert-error{background:#FEE2E2;color:#991B1B;border:1px solid #FECACA;}
+  .alert-info{background:#DBEAFE;color:#1E40AF;border:1px solid #BFDBFE;}
+  .table-wrap{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{background:var(--gray-700);color:white;padding:9px 11px;text-align:left;white-space:nowrap;font-size:12px;}
+  td{padding:8px 11px;border-bottom:1px solid var(--gray-100);}
+  tr:hover td{background:var(--gray-50);}
+  .rank-1 td{background:#FFFDE7!important;} .rank-2 td{background:#F5F5F5!important;}
+  .rank-3 td{background:#FFF8F0!important;} .rank-4 td,.rank-5 td,.rank-6 td{background:#F0FFF4!important;}
+  .rank-badge{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;font-weight:700;font-size:12px;}
+  .rb-1{background:#FFD700;color:#78350F;} .rb-2{background:#C0C0C0;color:#374151;}
+  .rb-3{background:#CD7F32;color:white;} .rb-o{background:var(--gray-200);color:var(--gray-700);}
+  .action-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;}
+  .search-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+  .search-bar input,.search-bar select{flex:1;min-width:160px;}
+  .score-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px;}
+  .score-card{background:var(--primary-light);border-radius:10px;padding:14px;text-align:center;}
+  .score-card .value{font-size:26px;font-weight:700;color:var(--primary);}
+  .score-card .slabel{font-size:11px;color:var(--gray-500);margin-top:3px;}
+  .loading{display:flex;align-items:center;justify-content:center;padding:36px;color:var(--gray-500);font-size:13px;gap:8px;}
+  .spinner{width:18px;height:18px;border:2px solid var(--gray-200);border-top-color:var(--primary);border-radius:50%;animation:spin 0.7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .empty-state{text-align:center;padding:40px;color:var(--gray-500);}
+  .cat-group{border:2px solid var(--gray-200);border-radius:10px;margin-bottom:14px;overflow:hidden;}
+  .cat-group-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;font-weight:700;font-size:14px;color:white;}
+  .cat-group-header.c1{background:#1D4ED8;} .cat-group-header.c2{background:#065F46;}
+  .cat-group-header.c3{background:#92400E;} .cat-group-header.c4{background:#9D174D;}
+  .cat-group-header.c5{background:#5B21B6;}
+  .cat-group-body{padding:10px 14px;}
+  .cat-item-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--gray-100);}
+  .cat-item-row:last-child{border-bottom:none;}
+  .cat-item-row input[type="text"]{flex:1;}
+  @media(max-width:600px){.form-grid{grid-template-columns:1fr;}.score-summary{grid-template-columns:1fr 1fr;}.nav-tab{padding:12px 10px;font-size:12px;}}
+
+  /* 全頁載入遮罩 */
+  #app-loading{position:fixed;inset:0;background:white;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:9999;font-size:15px;color:var(--gray-500);}
+  #app-loading .big-spinner{width:40px;height:40px;border:4px solid var(--gray-200);border-top-color:var(--primary);border-radius:50%;animation:spin 0.8s linear infinite;}
+</style>
+</head>
+<body>
+
+<div id="app-loading">
+  <div class="big-spinner"></div>
+  <span>載入中，請稍候…</span>
+</div>
+
+<nav class="navbar" style="display:none" id="navbar">
+  <div class="navbar-title">🏛️ 執事積分</div>
+  <div class="nav-tab active"  onclick="switchTab('input')">活動輸入</div>
+  <div class="nav-tab" onclick="switchTab('detail')">活動明細</div>
+  <div class="nav-tab" onclick="switchTab('ranking')">總排名</div>
+  <div class="nav-tab" onclick="switchTab('personal')">個人積分</div>
+  <div class="nav-tab" onclick="switchTab('settings')">分類設定</div>
+  <div class="nav-tab" onclick="switchTab('manage')">🗑️ 管理紀錄</div>
+</nav>
+
+<div class="container" id="main-container" style="display:none">
+
+  <!-- 活動輸入 -->
+  <div id="page-input" class="page active">
+    <div class="card">
+      <div class="card-title">新增活動紀錄</div>
+      <div id="input-alert"></div>
+      <div class="form-grid" style="margin-bottom:14px;">
+        <div class="form-group">
+          <label>義工姓名</label>
+          <input type="text" id="inp-name" placeholder="請輸入姓名">
+        </div>
+        <div class="form-group">
+          <label>活動日期</label>
+          <input type="date" id="inp-date">
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:14px;">
+        <label>擔任執事（可多選）</label>
+        <div id="duty-grid"><div class="loading"><div class="spinner"></div>載入中…</div></div>
+      </div>
+      <button type="button" class="btn btn-primary" id="btn-submit" onclick="submitRecord()">新增紀錄</button>
+    </div>
+    <div class="card">
+      <div class="action-bar">
+        <div class="card-title" style="margin:0;border:0;padding:0">近期活動紀錄</div>
+        <button type="button" class="btn btn-outline btn-sm" onclick="loadRecords()">🔄 重新整理</button>
+      </div>
+      <div id="records-table"><div class="loading"><div class="spinner"></div>載入中…</div></div>
+    </div>
+  </div>
+
+  <!-- 活動明細 -->
+  <div id="page-detail" class="page">
+    <div class="card">
+      <div class="card-title">活動明細（以活動日期為主）</div>
+      <div class="search-bar">
+        <input type="text" id="detail-search" placeholder="搜尋日期或執事項目…" oninput="filterDetail()">
+        <button type="button" class="btn btn-outline btn-sm" onclick="loadDetail()">🔄 重新整理</button>
+      </div>
+      <div id="detail-table"><div class="loading"><div class="spinner"></div>載入中…</div></div>
+    </div>
+  </div>
+
+  <!-- 總排名 -->
+  <div id="page-ranking" class="page">
+    <div class="card">
+      <div class="action-bar">
+        <div class="card-title" style="margin:0;border:0;padding:0">義工積分排名</div>
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="loadRankings()">🔄 重新整理</button>
+          <button type="button" class="btn btn-success btn-sm" id="btn-export" onclick="doExport()">📥 匯出至 Google Drive</button>
+        </div>
+      </div>
+      <div id="export-alert"></div>
+      <div id="ranking-table"><div class="loading"><div class="spinner"></div>載入中…</div></div>
+    </div>
+  </div>
+
+  <!-- 個人積分 -->
+  <div id="page-personal" class="page">
+    <div class="card">
+      <div class="card-title">個人積分查詢</div>
+      <div class="search-bar">
+        <select id="personal-sel" onchange="showPersonal()">
+          <option value="">── 請選擇義工 ──</option>
+        </select>
+        <button type="button" class="btn btn-outline btn-sm" onclick="loadPersonalList()">🔄 重新整理</button>
+      </div>
+      <div id="personal-content"></div>
+    </div>
+  </div>
+
+  <!-- 分類設定 -->
+  <div id="page-settings" class="page">
+    <div class="card">
+      <div class="action-bar">
+        <div class="card-title" style="margin:0;border:0;padding:0">執事分類設定</div>
+        <button type="button" class="btn btn-success btn-sm" onclick="saveSettings()">💾 儲存設定</button>
+      </div>
+      <div id="settings-alert" style="margin-top:10px;"></div>
+      <div id="settings-table" style="margin-top:14px;"><div class="loading"><div class="spinner"></div>載入中…</div></div>
+      <p style="font-size:11px;color:#6B7280;margin-top:10px;">※ 每個類別可新增執事項目。修改後請點「💾 儲存設定」。</p>
+    </div>
+  </div>
+
+  <!-- 管理紀錄 -->
+  <div id="page-manage" class="page">
+    <div class="card">
+      <div class="card-title">批量刪除紀錄</div>
+      <div id="manage-alert"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px;">
+        <div style="border:1.5px solid var(--gray-200);border-radius:10px;padding:16px;">
+          <div style="font-weight:700;font-size:14px;margin-bottom:12px;color:var(--gray-700);">📅 依日期範圍刪除</div>
+          <div class="form-group" style="margin-bottom:8px;"><label>開始日期</label><input type="date" id="del-from"></div>
+          <div class="form-group" style="margin-bottom:12px;"><label>結束日期</label><input type="date" id="del-to"></div>
+          <button type="button" class="btn btn-outline btn-sm" onclick="previewByDate()">🔍 預覽</button>
+        </div>
+        <div style="border:1.5px solid var(--gray-200);border-radius:10px;padding:16px;">
+          <div style="font-weight:700;font-size:14px;margin-bottom:12px;color:var(--gray-700);">👤 依姓名刪除</div>
+          <div class="form-group" style="margin-bottom:12px;"><label>選擇義工</label>
+            <select id="del-name-sel"><option value="">── 請選擇 ──</option></select>
+          </div>
+          <button type="button" class="btn btn-outline btn-sm" onclick="previewByName()">🔍 預覽</button>
+        </div>
+      </div>
+      <div id="manage-preview"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ══ 設定 API 網址 ══════════════════════════════════════
+const API_URL = 'https://script.google.com/macros/s/AKfycbz876tMU2W_-dEA4I39x6yKcKmaYVlFBZj3ATk4hBHzammbXCBHMHXiSqP-_hL91DAi/exec';
+
+// ══ API 呼叫工具 ══════════════════════════════════════
+function jsonp(action, params) {
+  return new Promise(function(resolve, reject) {
+    var cbName = '_cb' + Date.now() + Math.floor(Math.random()*1000);
+    var url = API_URL + '?action=' + encodeURIComponent(action) + '&callback=' + cbName;
+    if (params) {
+      Object.keys(params).forEach(function(k) {
+        url += '&' + k + '=' + encodeURIComponent(
+          typeof params[k] === 'object' ? JSON.stringify(params[k]) : params[k]
+        );
+      });
+    }
+    window[cbName] = function(data) {
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+      if (data.error) reject(new Error(data.error));
+      else resolve(data);
+    };
+    var script = document.createElement('script');
+    script.src = url;
+    script.onerror = function() { delete window[cbName]; reject(new Error('網路錯誤')); };
+    document.head.appendChild(script);
+  });
+}
+async function apiGet(action, params) { return jsonp(action, params); }
+async function apiPost(action, payload) { return jsonp(action, payload); }
+
+// ══ 全域狀態 ══════════════════════════════════════════
+var categories = [], allScores = {}, detailRows = [], manageRecords = [], previewFiltered = [];
+
+// ══ 工具函式 ══════════════════════════════════════════
+function catClass(n) { return 'cat-'+Math.min(n,5); }
+function catLabel(n) { return {1:'第一類',2:'第二類',3:'第三類',4:'第四類',5:'第五類'}[n]||'第'+n+'類'; }
+function rbClass(i) { return ['rb-1','rb-2','rb-3'][i]||'rb-o'; }
+function loading(id) { document.getElementById(id).innerHTML='<div class="loading"><div class="spinner"></div>載入中…</div>'; }
+function showAlert(id,type,msg,ms) {
+  var el=document.getElementById(id); if(!el) return;
+  el.innerHTML='<div class="alert alert-'+type+'">'+msg+'</div>';
+  if (ms!==0) setTimeout(function(){ el.innerHTML=''; },ms||4000);
+}
+
+// ══ 分頁切換 ══════════════════════════════════════════
+function switchTab(tab) {
+  var pages=['input','detail','ranking','personal','settings','manage'];
+  pages.forEach(function(p){ document.getElementById('page-'+p).classList.remove('active'); });
+  document.querySelectorAll('.nav-tab').forEach(function(t,i){ t.classList.toggle('active',i===pages.indexOf(tab)); });
+  document.getElementById('page-'+tab).classList.add('active');
+  if (tab==='ranking') loadRankings();
+  if (tab==='detail') loadDetail();
+  if (tab==='personal') loadPersonalList();
+  if (tab==='settings') loadSettings();
+  if (tab==='manage') loadManage();
+}
+
+// ══ 初始化 ════════════════════════════════════════════
+async function init() {
+  document.getElementById('inp-date').value = new Date().toISOString().split('T')[0];
+  try {
+    const data = await apiGet('init');
+    categories = data.categories;
+    renderDutyGrid();
+    renderRecords(data.records.slice(-50).reverse());
+    document.getElementById('app-loading').style.display = 'none';
+    document.getElementById('navbar').style.display = '';
+    document.getElementById('main-container').style.display = '';
+  } catch(e) {
+    document.getElementById('app-loading').innerHTML = '<p style="color:red;padding:20px;">載入失敗：'+e.message+'<br><small>請確認 API_URL 是否正確設定</small></p>';
+  }
+}
+
+// ══ 執事格子 ══════════════════════════════════════════
+function renderDutyGrid() {
+  var grid = document.getElementById('duty-grid');
+  if (!categories.length) { grid.innerHTML='<p style="color:#6B7280;font-size:13px;">尚無執事設定</p>'; return; }
+  var groups={};
+  categories.forEach(function(c){ var k=c.categoryNum; if(!groups[k]) groups[k]={name:c.categoryName,num:k,items:[]}; groups[k].items.push(c); });
+  var html='<div class="duty-sections">';
+  Object.keys(groups).sort(function(a,b){return a-b;}).forEach(function(k){
+    var g=groups[k];
+    html+='<div class="duty-section">';
+    html+='<div class="duty-section-title"><span class="duty-badge '+catClass(g.num)+'">'+g.name+'</span><span style="color:var(--gray-500);font-weight:400;font-size:11px;">'+g.num+' 分</span></div>';
+    html+='<div class="duty-items-row">';
+    g.items.forEach(function(c){ html+='<label class="duty-item"><input type="checkbox" value="'+c.name+'" data-cat="'+c.categoryNum+'" data-score="'+c.score+'"><span class="label">'+c.name+'</span></label>'; });
+    html+='</div></div>';
+  });
+  html+='</div>';
+  grid.innerHTML=html;
+  grid.querySelectorAll('input[type="checkbox"]').forEach(function(cb){
+    cb.addEventListener('change',function(){ this.closest('.duty-item').classList.toggle('checked',this.checked); });
+  });
+}
+
+function clearForm() {
+  document.getElementById('inp-name').value='';
+  document.getElementById('inp-date').value=new Date().toISOString().split('T')[0];
+  document.querySelectorAll('#duty-grid input[type="checkbox"]').forEach(function(cb){ cb.checked=false; cb.closest('.duty-item').classList.remove('checked'); });
+}
+
+// ══ 新增紀錄 ══════════════════════════════════════════
+async function submitRecord() {
+  var name=document.getElementById('inp-name').value.trim();
+  var date=document.getElementById('inp-date').value;
+  var checked=Array.from(document.querySelectorAll('#duty-grid input[type="checkbox"]:checked'));
+  if (!name) { showAlert('input-alert','error','請輸入義工姓名'); return; }
+  if (!date) { showAlert('input-alert','error','請選擇活動日期'); return; }
+  if (!checked.length) { showAlert('input-alert','error','請至少選擇一項執事'); return; }
+  var duties=checked.map(function(cb){ return {item:cb.value,categoryNum:Number(cb.dataset.cat),score:Number(cb.dataset.score)}; });
+  var btn=document.getElementById('btn-submit');
+  btn.disabled=true; btn.textContent='送出中…';
+  try {
+    const res = await apiPost('addRecords', {payload:{name,date,duties}});
+    btn.disabled=false; btn.textContent='新增紀錄';
+    var msg='✅ 成功新增 '+res.added+' 筆';
+    if (res.duplicates) msg+='，'+res.duplicates+' 筆重複略過';
+    showAlert('input-alert','success',msg);
+    clearForm(); loadRecords();
+  } catch(e) { btn.disabled=false; btn.textContent='新增紀錄'; showAlert('input-alert','error','錯誤：'+e.message); }
+}
+
+// ══ 近期紀錄 ══════════════════════════════════════════
+async function loadRecords() {
+  loading('records-table');
+  try {
+    const records = await apiGet('records');
+    renderRecords(records.slice(-50).reverse());
+  } catch(e) { document.getElementById('records-table').innerHTML='<p style="color:red;padding:16px;">'+e.message+'</p>'; }
+}
+
+function renderRecords(records) {
+  if (!records.length) { document.getElementById('records-table').innerHTML='<div class="empty-state">尚無紀錄</div>'; return; }
+  var html='<div class="table-wrap"><table><thead><tr><th>姓名</th><th>活動日期</th><th>執事項目</th><th>類別</th><th>分數</th><th>操作</th></tr></thead><tbody>';
+  records.forEach(function(r){
+    html+='<tr><td>'+r.name+'</td><td>'+r.date+'</td><td>'+r.item+'</td><td><span class="duty-badge '+catClass(r.categoryNum)+'">'+catLabel(r.categoryNum)+'</span></td><td>'+r.score+'</td>';
+    html+='<td><button type="button" class="btn btn-danger" onclick="delRecord(\''+r.id+'\')">刪除</button></td></tr>';
+  });
+  html+='</tbody></table></div><p style="font-size:11px;color:#6B7280;margin-top:6px;">顯示最近 50 筆</p>';
+  document.getElementById('records-table').innerHTML=html;
+}
+
+async function delRecord(id) {
+  if (!confirm('確定要刪除這筆紀錄嗎？')) return;
+  try {
+    const res = await apiPost('deleteRecord', {id});
+    if (res.success) { showAlert('input-alert','success','已刪除'); loadRecords(); }
+  } catch(e) { showAlert('input-alert','error','刪除失敗：'+e.message); }
+}
+
+// ══ 總排名 ════════════════════════════════════════════
+async function loadRankings() {
+  loading('ranking-table');
+  try {
+    const rankings = await apiGet('rankings');
+    renderRankings(rankings);
+  } catch(e) { document.getElementById('ranking-table').innerHTML='<p style="color:red;padding:16px;">'+e.message+'</p>'; }
+}
+
+function renderRankings(rankings) {
+  if (!rankings.length) { document.getElementById('ranking-table').innerHTML='<div class="empty-state">尚無積分資料</div>'; return; }
+  var html='<div class="table-wrap"><table><thead><tr><th>排名</th><th>姓名</th><th>累積基本分</th><th>累積多元積分</th><th>活動次數</th></tr></thead><tbody>';
+  rankings.forEach(function(p,i){
+    html+='<tr class="rank-'+(i<6?i+1:7)+'"><td><span class="rank-badge '+rbClass(i)+'">'+(i+1)+'</span></td><td><strong>'+p.name+'</strong></td><td>'+p.totalBasic+'</td><td><strong>'+p.totalMulti+'</strong></td><td>'+p.activities.length+'</td></tr>';
+  });
+  html+='</tbody></table></div><p style="font-size:11px;color:#6B7280;margin-top:6px;">🥇金 🥈銀 🥉銅 🟢前六名</p>';
+  document.getElementById('ranking-table').innerHTML=html;
+}
+
+async function doExport() {
+  var btn=document.getElementById('btn-export');
+  btn.disabled=true; btn.textContent='匯出中…';
+  document.getElementById('export-alert').innerHTML='';
+  try {
+    const res = await apiPost('exportToSheets', {});
+    btn.disabled=false; btn.textContent='📥 匯出至 Google Drive';
+    document.getElementById('export-alert').innerHTML='<div class="alert alert-success">✅ 匯出成功！<a href="'+res.url+'" target="_blank" style="color:#065F46;font-weight:600;margin-left:6px;">點此開啟報表 →</a></div>';
+  } catch(e) { btn.disabled=false; btn.textContent='📥 匯出至 Google Drive'; showAlert('export-alert','error','匯出失敗：'+e.message); }
+}
+
+// ══ 活動明細 ══════════════════════════════════════════
+async function loadDetail() {
+  loading('detail-table');
+  try {
+    const records = await apiGet('records');
+    var byDate={};
+    records.forEach(function(r){ if(!byDate[r.date]) byDate[r.date]=[]; byDate[r.date].push(r); });
+    detailRows=[];
+    Object.keys(byDate).sort().reverse().forEach(function(d){
+      var byItem={};
+      byDate[d].forEach(function(r){ if(!byItem[r.item]) byItem[r.item]={persons:[],score:r.score,categoryNum:r.categoryNum}; byItem[r.item].persons.push(r.name); });
+      Object.keys(byItem).forEach(function(item){ detailRows.push({date:d,item,persons:byItem[item].persons.join('、'),count:byItem[item].persons.length,score:byItem[item].score,categoryNum:byItem[item].categoryNum}); });
+    });
+    filterDetail();
+  } catch(e) { document.getElementById('detail-table').innerHTML='<p style="color:red;padding:16px;">'+e.message+'</p>'; }
+}
+
+function filterDetail() {
+  var q=document.getElementById('detail-search').value.trim().toLowerCase();
+  var rows=q?detailRows.filter(function(r){ return r.date.indexOf(q)>=0||r.item.toLowerCase().indexOf(q)>=0||r.persons.toLowerCase().indexOf(q)>=0; }):detailRows;
+  if (!rows.length) { document.getElementById('detail-table').innerHTML='<div class="empty-state">查無資料</div>'; return; }
+  var byDate={};
+  rows.forEach(function(r){ if(!byDate[r.date]) byDate[r.date]=[]; byDate[r.date].push(r); });
+  var html='';
+  Object.keys(byDate).sort().reverse().forEach(function(d){
+    var sorted=byDate[d].slice().sort(function(a,b){ if(a.categoryNum!==b.categoryNum) return a.categoryNum-b.categoryNum; return a.item.localeCompare(b.item,'zh-TW'); });
+    html+='<div class="card" style="margin-bottom:12px;"><div class="card-title">📅 '+d+'</div>';
+    html+='<div class="table-wrap"><table><thead><tr><th>類別</th><th>執事項目</th><th>擔任人員</th><th>人數</th></tr></thead><tbody>';
+    var lastCat=null;
+    sorted.forEach(function(r){
+      var badge=r.categoryNum!==lastCat?'<span class="duty-badge '+catClass(r.categoryNum)+'">'+catLabel(r.categoryNum)+'</span>':'';
+      lastCat=r.categoryNum;
+      html+='<tr><td>'+badge+'</td><td>'+r.item+'</td><td>'+r.persons+'</td><td>'+r.count+'</td></tr>';
+    });
+    html+='</tbody></table></div></div>';
+  });
+  document.getElementById('detail-table').innerHTML=html;
+}
+
+// ══ 個人積分 ══════════════════════════════════════════
+async function loadPersonalList() {
+  try {
+    const scores = await apiGet('scores');
+    allScores=scores;
+    var sel=document.getElementById('personal-sel'), cur=sel.value;
+    sel.innerHTML='<option value="">── 請選擇義工 ──</option>';
+    Object.keys(scores).sort().forEach(function(name){ sel.innerHTML+='<option value="'+name+'"'+(name===cur?' selected':'')+'>'+name+'</option>'; });
+    if (cur&&scores[cur]) showPersonal();
+  } catch(e) {}
+}
+
+function showPersonal() {
+  var name=document.getElementById('personal-sel').value;
+  if (!name) { document.getElementById('personal-content').innerHTML=''; return; }
+  var p=allScores[name]; if(!p) return;
+  var html='<div class="score-summary"><div class="score-card"><div class="value">'+p.totalBasic+'</div><div class="slabel">累積基本分</div></div><div class="score-card"><div class="value">'+p.totalMulti+'</div><div class="slabel">累積多元積分</div></div><div class="score-card"><div class="value">'+p.activities.length+'</div><div class="slabel">參與活動次數</div></div></div>';
+  html+='<div class="table-wrap"><table><thead><tr><th>活動日期</th><th>執事項目</th><th>滾動窗口類別</th><th>當次基本分</th><th>係數</th><th>當次多元分</th><th>累積基本分</th><th>累積多元積分</th></tr></thead><tbody>';
+  p.activities.forEach(function(act){ html+='<tr><td>'+act.date+'</td><td>'+act.items+'</td><td><small>'+act.windowCategories+'</small></td><td>'+act.basicScore+'</td><td>×'+act.coefficient+'</td><td><strong>'+act.multiScore+'</strong></td><td>'+act.cumBasic+'</td><td><strong>'+act.cumMulti+'</strong></td></tr>'; });
+  html+='<tr style="background:#EEF2FF;font-weight:600;"><td colspan="3">總計</td><td>'+p.totalBasic+'</td><td></td><td></td><td>'+p.totalBasic+'</td><td>'+p.totalMulti+'</td></tr>';
+  html+='</tbody></table></div>';
+  document.getElementById('personal-content').innerHTML=html;
+}
+
+// ══ 分類設定 ══════════════════════════════════════════
+async function loadSettings() {
+  loading('settings-table');
+  try {
+    const cats = await apiGet('init').then(d=>d.categories);
+    categories=cats; renderSettings(cats);
+  } catch(e) { document.getElementById('settings-table').innerHTML='<p style="color:red;padding:16px;">'+e.message+'</p>'; }
+}
+
+var CAT_NAMES={1:'第一類',2:'第二類',3:'第三類',4:'第四類',5:'第五類'};
+var CAT_SCORES={1:1,2:2,3:3,4:4,5:5};
+var CAT_COLOR={1:'c1',2:'c2',3:'c3',4:'c4',5:'c5'};
+var sCounter=0;
+
+function renderSettings(cats) {
+  sCounter=0;
+  var groups={};
+  cats.forEach(function(c){ var k=c.categoryNum; if(!groups[k]) groups[k]={num:k,name:c.categoryName,score:c.score,items:[]}; groups[k].items.push(c); });
+  var html='';
+  [1,2,3,4,5].forEach(function(k){
+    var g=groups[k]||{num:k,name:CAT_NAMES[k],score:CAT_SCORES[k],items:[]};
+    html+='<div class="cat-group"><div class="cat-group-header '+CAT_COLOR[k]+'">';
+    html+='<span>第'+k+'類　'+g.name+'　（'+g.score+' 分）</span>';
+    html+='<button type="button" class="btn btn-sm" style="background:rgba(255,255,255,0.25);color:white;border:1px solid rgba(255,255,255,0.5);" onclick="addItemToGroup('+k+')">＋ 新增執事</button>';
+    html+='</div><div class="cat-group-body" id="catbody-'+k+'">';
+    if (!g.items.length) html+='<p class="empty-hint" style="font-size:12px;color:#9CA3AF;padding:6px 0;">尚無執事，點右上角新增</p>';
+    g.items.forEach(function(c){ html+=catItemHtml(c.name,k,sCounter++); });
+    html+='</div></div>';
+  });
+  document.getElementById('settings-table').innerHTML=html;
+}
+
+function catItemHtml(name,catNum,i) {
+  var moveOpts='';
+  [1,2,3,4,5].forEach(function(k){ if(k!==catNum) moveOpts+='<option value="'+k+'">移至第'+k+'類</option>'; });
+  return '<div class="cat-item-row" id="srow-'+i+'">' +
+    '<input type="text" value="'+name+'" id="sn-'+i+'" placeholder="執事名稱" style="flex:1">' +
+    '<select style="width:100px;font-size:11px;padding:4px 6px;border:1.5px solid var(--gray-200);border-radius:6px;" onchange="moveItemToGroup(this,'+i+')">' +
+      '<option value="">── 移至 ──</option>'+moveOpts +
+    '</select>' +
+    '<button type="button" class="btn btn-danger btn-sm" onclick="removeRow(\'srow-'+i+'\')">刪除</button>' +
+    '</div>';
+}
+
+function removeRow(id) { var el=document.getElementById(id); if(el) el.remove(); }
+
+function moveItemToGroup(sel,i) {
+  var newCat=parseInt(sel.value); if(!newCat) return;
+  var row=document.getElementById('srow-'+i); if(!row) return;
+  var name=document.getElementById('sn-'+i).value;
+  row.remove();
+  var body=document.getElementById('catbody-'+newCat);
+  var hint=body.querySelector('.empty-hint'); if(hint) hint.remove();
+  var newI=sCounter++;
+  body.innerHTML+=catItemHtml(name,newCat,newI);
+}
+
+function addItemToGroup(catNum) {
+  var body=document.getElementById('catbody-'+catNum);
+  var hint=body.querySelector('.empty-hint'); if(hint) hint.remove();
+  var i=sCounter++;
+  var div=document.createElement('div'); div.className='cat-item-row'; div.id='srow-'+i;
+  var ni=document.createElement('input'); ni.type='text'; ni.id='sn-'+i; ni.placeholder='執事名稱'; ni.style.flex='1';
+  var mo=document.createElement('select'); mo.style.cssText='width:100px;font-size:11px;padding:4px 6px;border:1.5px solid var(--gray-200);border-radius:6px;';
+  mo.innerHTML='<option value="">── 移至 ──</option>';
+  [1,2,3,4,5].forEach(function(k){ if(k!==catNum) mo.innerHTML+='<option value="'+k+'">移至第'+k+'類</option>'; });
+  mo.onchange=function(){ moveItemToGroup(mo,i); };
+  var db=document.createElement('button'); db.type='button'; db.className='btn btn-danger btn-sm'; db.textContent='刪除'; db.onclick=function(){ div.remove(); };
+  div.appendChild(ni); div.appendChild(mo); div.appendChild(db);
+  body.appendChild(div); ni.focus();
+}
+
+async function saveSettings() {
+  var cats=[];
+  [1,2,3,4,5].forEach(function(k){
+    var body=document.getElementById('catbody-'+k); if(!body) return;
+    body.querySelectorAll('.cat-item-row').forEach(function(row){
+      var nameEl=row.querySelector('input[type="text"]'); if(!nameEl||!nameEl.value.trim()) return;
+      cats.push({name:nameEl.value.trim(),categoryNum:k,categoryName:CAT_NAMES[k],score:CAT_SCORES[k]});
+    });
+  });
+  try {
+    await apiPost('updateCategories',{categories:cats});
+    categories=cats; renderDutyGrid();
+    showAlert('settings-alert','success','✅ 設定已儲存');
+  } catch(e) { showAlert('settings-alert','error','儲存失敗：'+e.message); }
+}
+
+// ══ 管理紀錄 ══════════════════════════════════════════
+async function loadManage() {
+  document.getElementById('manage-preview').innerHTML='';
+  document.getElementById('manage-alert').innerHTML='';
+  try {
+    manageRecords = await apiGet('records');
+    var names=[]; manageRecords.forEach(function(r){ if(names.indexOf(r.name)<0) names.push(r.name); }); names.sort();
+    var sel=document.getElementById('del-name-sel');
+    sel.innerHTML='<option value="">── 請選擇 ──</option>';
+    names.forEach(function(n){ sel.innerHTML+='<option value="'+n+'">'+n+'</option>'; });
+  } catch(e) {}
+}
+
+function previewByDate() {
+  var from=document.getElementById('del-from').value, to=document.getElementById('del-to').value;
+  if (!from||!to) { showAlert('manage-alert','error','請選擇開始和結束日期'); return; }
+  renderPreview(manageRecords.filter(function(r){ return r.date>=from&&r.date<=to; }),'日期 '+from+' 至 '+to);
+}
+function previewByName() {
+  var name=document.getElementById('del-name-sel').value;
+  if (!name) { showAlert('manage-alert','error','請選擇義工'); return; }
+  renderPreview(manageRecords.filter(function(r){ return r.name===name; }),name+' 的所有紀錄');
+}
+
+function renderPreview(filtered,label) {
+  previewFiltered=filtered.slice();
+  var preview=document.getElementById('manage-preview');
+  if (!filtered.length) { preview.innerHTML='<div class="alert alert-info">查無符合條件的紀錄</div>'; return; }
+  var html='<div class="alert alert-info">找到 <strong>'+filtered.length+'</strong> 筆符合「'+label+'」的紀錄</div>';
+  html+='<div class="table-wrap"><table><thead><tr><th>姓名</th><th>活動日期</th><th>執事項目</th><th>分數</th><th>操作</th></tr></thead><tbody>';
+  filtered.forEach(function(r,idx){ html+='<tr id="prow-'+idx+'"><td>'+r.name+'</td><td>'+r.date+'</td><td>'+r.item+'</td><td>'+r.score+'</td><td><button type="button" class="btn btn-danger" onclick="deleteSingle('+idx+')">刪除</button></td></tr>'; });
+  html+='</tbody></table></div>';
+  html+='<div style="margin-top:14px;display:flex;gap:8px;align-items:center;"><button type="button" class="btn btn-danger" id="btn-del-all" onclick="doDeleteAll()">🗑️ 全部刪除（'+filtered.length+' 筆）</button><span style="font-size:12px;color:var(--gray-500);">刪除後無法復原</span></div>';
+  preview.innerHTML=html;
+}
+
+async function deleteSingle(idx) {
+  var r=previewFiltered[idx]; if(!r) return;
+  if (!confirm('確定刪除「'+r.name+' / '+r.date+' / '+r.item+'」？')) return;
+  try {
+    const res=await apiPost('deleteRecords',{ids:[r.id]});
+    if (res.deleted>0) {
+      showAlert('manage-alert','success','✅ 已刪除 1 筆');
+      var row=document.getElementById('prow-'+idx); if(row) row.remove();
+      previewFiltered[idx]=null;
+      var remaining=previewFiltered.filter(function(x){ return x!==null; }).length;
+      var btn=document.getElementById('btn-del-all'); if(btn) btn.textContent='🗑️ 全部刪除（'+remaining+' 筆）';
+      manageRecords=manageRecords.filter(function(x){ return x.id!==r.id; });
+    }
+  } catch(e) { showAlert('manage-alert','error','刪除失敗：'+e.message); }
+}
+
+async function doDeleteAll() {
+  var ids=previewFiltered.filter(function(r){ return r!==null; }).map(function(r){ return r.id; });
+  if (!ids.length) return;
+  if (!confirm('確定要刪除全部 '+ids.length+' 筆紀錄嗎？此操作無法復原。')) return;
+  document.getElementById('manage-preview').innerHTML='<div class="loading"><div class="spinner"></div>刪除中…</div>';
+  try {
+    const res=await apiPost('deleteRecords',{ids});
+    showAlert('manage-alert','success','✅ 已成功刪除 '+res.deleted+' 筆紀錄');
+    loadManage();
+  } catch(e) { showAlert('manage-alert','error','刪除失敗：'+e.message); }
+}
+
+// ══ 啟動 ══════════════════════════════════════════════
+init();
+</script>
+</body>
+</html>
