@@ -533,19 +533,97 @@ function addItemToGroup(catNum) {
 }
 
 async function saveSettings() {
-  var cats=[];
-  [1,2,3,4,5].forEach(function(k){
-    var body=document.getElementById('catbody-'+k); if(!body) return;
-    body.querySelectorAll('.cat-item-row').forEach(function(row){
-      var nameEl=row.querySelector('input[type="text"]'); if(!nameEl||!nameEl.value.trim()) return;
-      cats.push({name:nameEl.value.trim(),categoryNum:k,categoryName:CAT_NAMES[k],score:CAT_SCORES[k]});
-    });
-  });
+  const btn = document.getElementById('save-settings-btn');
+  
+  // 防止重复点击
+  if (btn.disabled) return;
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  btn.textContent = '⏳ 儲存中...';
+  
   try {
-    await apiPost('updateCategories',{categories:cats});
-    categories=cats; renderDutyGrid();
-    showAlert('settings-alert','success','✅ 設定已儲存');
-  } catch(e) { showAlert('settings-alert','error','儲存失敗：'+e.message); }
+    // 收集所有分类
+    const cats = [];
+    const CAT_NAMES = {1:'第一類',2:'第二類',3:'第三類',4:'第四類',5:'第五類'};
+    const CAT_SCORES = {1:1,2:2,3:3,4:4,5:5};
+    
+    for (let k = 1; k <= 5; k++) {
+      const body = document.getElementById('catbody-' + k);
+      if (!body) continue;
+      
+      body.querySelectorAll('.cat-item-row').forEach(row => {
+        const nameEl = row.querySelector('input[type="text"]');
+        if (nameEl && nameEl.value.trim()) {
+          cats.push({
+            name: nameEl.value.trim(),
+            categoryNum: k,
+            categoryName: CAT_NAMES[k],
+            score: CAT_SCORES[k]
+          });
+        }
+      });
+    }
+    
+    // 验证
+    if (cats.length === 0) {
+      alert('❌ 錯誤：至少需要一個分類項目');
+      btn.textContent = originalText;
+      btn.disabled = false;
+      return;
+    }
+    
+    // 检查重复
+    const names = cats.map(c => c.name);
+    const uniqueNames = new Set(names);
+    if (names.length !== uniqueNames.size) {
+      alert('❌ 錯誤：有重複的執事項目名稱，請檢查');
+      btn.textContent = originalText;
+      btn.disabled = false;
+      return;
+    }
+    
+    // 发送到后端
+    const url = `${API_BASE}?action=updateCategories&categories=${encodeURIComponent(JSON.stringify(cats))}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    
+    if (data.success) {
+      // ✅ 成功：更新按钮状态
+      btn.textContent = '✅ 儲存成功！';
+      btn.style.backgroundColor = '#10b981';
+      
+      // 🔑 关键：重新加载分类数据
+      await loadCategories();
+      
+      // 🔑 关键：重新渲染界面（删除的项目会消失）
+      renderSettings();
+      
+      // 3秒后恢复按钮
+      setTimeout(() => {
+        btn.textContent = originalText;
+        btn.style.backgroundColor = '';
+        btn.disabled = false;
+      }, 3000);
+      
+    } else {
+      throw new Error(data.error || '未知錯誤');
+    }
+    
+  } catch (err) {
+    // ❌ 失败：显示错误
+    console.error('保存失败:', err);
+    btn.textContent = '❌ 儲存失敗';
+    btn.style.backgroundColor = '#ef4444';
+    
+    alert('❌ 儲存失敗：' + err.message + '\n\n請檢查網路連線或重新整理頁面');
+    
+    // 3秒后恢复按钮
+    setTimeout(() => {
+      btn.textContent = originalText;
+      btn.style.backgroundColor = '';
+      btn.disabled = false;
+    }, 3000);
+  }
 }
 
 // ══ 管理紀錄 ══════════════════════════════════════════
