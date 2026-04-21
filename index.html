@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>執事紀錄</title>
+<title>執事積分系統</title>
 <style>
   :root {
     --primary:#4F46E5; --primary-light:#EEF2FF; --primary-dark:#3730A3;
@@ -95,11 +95,11 @@
 </div>
 
 <nav class="navbar" style="display:none" id="navbar">
-  <div class="navbar-title">🏛️ 執事紀錄</div>
+  <div class="navbar-title">🏛️ 執事積分</div>
   <div class="nav-tab active"  onclick="switchTab('input')">活動輸入</div>
   <div class="nav-tab" onclick="switchTab('detail')">活動明細</div>
   <div class="nav-tab" onclick="switchTab('ranking')">總排名</div>
-  <div class="nav-tab" onclick="switchTab('personal')">個人紀錄</div>
+  <div class="nav-tab" onclick="switchTab('personal')">個人積分</div>
   <div class="nav-tab" onclick="switchTab('settings')">分類設定</div>
   <div class="nav-tab" onclick="switchTab('manage')">🗑️ 管理紀錄</div>
 </nav>
@@ -163,10 +163,10 @@
     </div>
   </div>
 
-  <!-- 個人紀錄 -->
+  <!-- 個人積分 -->
   <div id="page-personal" class="page">
     <div class="card">
-      <div class="card-title">個人紀錄查詢</div>
+      <div class="card-title">個人積分查詢</div>
       <div class="search-bar">
         <select id="personal-sel" onchange="showPersonal()">
           <option value="">── 請選擇義工 ──</option>
@@ -182,7 +182,7 @@
     <div class="card">
       <div class="action-bar">
         <div class="card-title" style="margin:0;border:0;padding:0">執事分類設定</div>
-        <button type="button" class="btn btn-success btn-sm" onclick="saveSettings()">💾 儲存設定</button>
+        <button type="button" class="btn btn-success btn-sm" id="save-settings-btn" onclick="saveSettings()">💾 儲存設定</button>
       </div>
       <div id="settings-alert" style="margin-top:10px;"></div>
       <div id="settings-table" style="margin-top:14px;"><div class="loading"><div class="spinner"></div>載入中…</div></div>
@@ -436,7 +436,7 @@ function filterDetail() {
   document.getElementById('detail-table').innerHTML=html;
 }
 
-// ══ 個人紀錄 ══════════════════════════════════════════
+// ══ 個人積分 ══════════════════════════════════════════
 async function loadPersonalList() {
   try {
     const scores = await apiGet('scores');
@@ -534,6 +534,10 @@ function addItemToGroup(catNum) {
 
 async function saveSettings() {
   const btn = document.getElementById('save-settings-btn');
+  if (!btn) {
+    alert('找不到儲存按鈕');
+    return;
+  }
   
   // 防止重复点击
   if (btn.disabled) return;
@@ -583,20 +587,22 @@ async function saveSettings() {
     }
     
     // 发送到后端
-    const url = `${API_BASE}?action=updateCategories&categories=${encodeURIComponent(JSON.stringify(cats))}`;
-    const res = await fetch(url);
-    const data = await res.json();
+    const data = await apiPost('updateCategories', {categories: cats});
     
     if (data.success) {
-      // ✅ 成功：更新按钮状态
-      btn.textContent = '✅ 儲存成功！';
+      // ✅ 成功：显示统一消息
+      btn.textContent = '✅ 已完成儲存';
       btn.style.backgroundColor = '#10b981';
       
-      // 🔑 关键：重新加载分类数据
-      await loadCategories();
+      // 重新加载最新分类
+      const latestData = await apiGet('init');
+      categories = latestData.categories;
       
-      // 🔑 关键：重新渲染界面（删除的项目会消失）
-      renderSettings();
+      // 重新渲染界面
+      renderSettings(categories);
+      
+      // 同时更新活动输入页面
+      renderDutyGrid();
       
       // 3秒后恢复按钮
       setTimeout(() => {
