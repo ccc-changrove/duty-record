@@ -153,10 +153,13 @@
     <div class="card">
       <div class="action-bar">
         <div class="card-title" style="margin:0;border:0;padding:0">義工積分排名</div>
-        <button type="button" class="btn btn-outline btn-sm" onclick="loadRankings()">🔄 重新整理</button>
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="loadRankings()">🔄 重新整理</button>
+          <button type="button" class="btn btn-success btn-sm" id="btn-export" onclick="doExport()">📥 匯出至 Google Drive</button>
+        </div>
       </div>
+      <div id="export-alert"></div>
       <div id="ranking-table"><div class="loading"><div class="spinner"></div>載入中…</div></div>
-      <p style="font-size:11px;color:#6B7280;margin-top:10px;">💡 完整報表已自動同步至 Google Sheet，包含總排名、活動明細報表及個人積分工作表</p>
     </div>
   </div>
 
@@ -331,7 +334,7 @@ async function submitRecord() {
     btn.disabled=false; btn.textContent='新增紀錄';
     var msg='✅ 成功新增 '+res.added+' 筆';
     if (res.duplicates) msg+='，'+res.duplicates+' 筆重複略過';
-    showAlert('input-alert','success',msg + '（報表已自動更新至 Google Sheet）');
+    showAlert('input-alert','success',msg);
     clearForm(); loadRecords();
   } catch(e) { btn.disabled=false; btn.textContent='新增紀錄'; showAlert('input-alert','error','錯誤：'+e.message); }
 }
@@ -360,7 +363,7 @@ async function delRecord(id) {
   if (!confirm('確定要刪除這筆紀錄嗎？')) return;
   try {
     const res = await apiPost('deleteRecord', {id});
-    if (res.success) { showAlert('input-alert','success','已刪除（報表已自動更新）'); loadRecords(); }
+    if (res.success) { showAlert('input-alert','success','已刪除'); loadRecords(); }
   } catch(e) { showAlert('input-alert','error','刪除失敗：'+e.message); }
 }
 
@@ -381,6 +384,17 @@ function renderRankings(rankings) {
   });
   html+='</tbody></table></div><p style="font-size:11px;color:#6B7280;margin-top:6px;">🥇金 🥈銀 🥉銅 🟢前六名</p>';
   document.getElementById('ranking-table').innerHTML=html;
+}
+
+async function doExport() {
+  var btn=document.getElementById('btn-export');
+  btn.disabled=true; btn.textContent='匯出中…';
+  document.getElementById('export-alert').innerHTML='';
+  try {
+    const res = await apiPost('exportToSheets', {});
+    btn.disabled=false; btn.textContent='📥 匯出至 Google Drive';
+    document.getElementById('export-alert').innerHTML='<div class="alert alert-success">✅ 匯出成功！<a href="'+res.url+'" target="_blank" style="color:#065F46;font-weight:600;margin-left:6px;">點此開啟報表 →</a></div>';
+  } catch(e) { btn.disabled=false; btn.textContent='📥 匯出至 Google Drive'; showAlert('export-alert','error','匯出失敗：'+e.message); }
 }
 
 // ══ 活動明細 ══════════════════════════════════════════
@@ -430,4 +444,260 @@ async function loadPersonalList() {
     var sel=document.getElementById('personal-sel'), cur=sel.value;
     sel.innerHTML='<option value="">── 請選擇義工 ──</option>';
     Object.keys(scores).sort().forEach(function(name){ sel.innerHTML+='<option value="'+name+'"'+(name===cur?' selected':'')+'>'+name+'</option>'; });
-    if (cur&&scores[cur]) showPersonal(
+    if (cur&&scores[cur]) showPersonal();
+  } catch(e) {}
+}
+
+function showPersonal() {
+  var name=document.getElementById('personal-sel').value;
+  if (!name) { document.getElementById('personal-content').innerHTML=''; return; }
+  var p=allScores[name]; if(!p) return;
+  var html='<div class="score-summary"><div class="score-card"><div class="value">'+p.totalBasic+'</div><div class="slabel">累積基本分</div></div><div class="score-card"><div class="value">'+p.totalMulti+'</div><div class="slabel">累積多元積分</div></div><div class="score-card"><div class="value">'+p.activities.length+'</div><div class="slabel">參與活動次數</div></div></div>';
+  html+='<div class="table-wrap"><table><thead><tr><th>活動日期</th><th>執事項目</th><th>滾動窗口類別</th><th>當次基本分</th><th>係數</th><th>當次多元分</th><th>累積基本分</th><th>累積多元積分</th></tr></thead><tbody>';
+  p.activities.forEach(function(act){ html+='<tr><td>'+act.date+'</td><td>'+act.items+'</td><td><small>'+act.windowCategories+'</small></td><td>'+act.basicScore+'</td><td>×'+act.coefficient+'</td><td><strong>'+act.multiScore+'</strong></td><td>'+act.cumBasic+'</td><td><strong>'+act.cumMulti+'</strong></td></tr>'; });
+  html+='<tr style="background:#EEF2FF;font-weight:600;"><td colspan="3">總計</td><td>'+p.totalBasic+'</td><td></td><td></td><td>'+p.totalBasic+'</td><td>'+p.totalMulti+'</td></tr>';
+  html+='</tbody></table></div>';
+  document.getElementById('personal-content').innerHTML=html;
+}
+
+// ══ 分類設定 ══════════════════════════════════════════
+async function loadSettings() {
+  loading('settings-table');
+  try {
+    const cats = await apiGet('init').then(d=>d.categories);
+    categories=cats; renderSettings(cats);
+  } catch(e) { document.getElementById('settings-table').innerHTML='<p style="color:red;padding:16px;">'+e.message+'</p>'; }
+}
+
+var CAT_NAMES={1:'第一類',2:'第二類',3:'第三類',4:'第四類',5:'第五類'};
+var CAT_SCORES={1:1,2:2,3:3,4:4,5:5};
+var CAT_COLOR={1:'c1',2:'c2',3:'c3',4:'c4',5:'c5'};
+var sCounter=0;
+
+function renderSettings(cats) {
+  sCounter=0;
+  var groups={};
+  cats.forEach(function(c){ var k=c.categoryNum; if(!groups[k]) groups[k]={num:k,name:c.categoryName,score:c.score,items:[]}; groups[k].items.push(c); });
+  var html='';
+  [1,2,3,4,5].forEach(function(k){
+    var g=groups[k]||{num:k,name:CAT_NAMES[k],score:CAT_SCORES[k],items:[]};
+    html+='<div class="cat-group"><div class="cat-group-header '+CAT_COLOR[k]+'">';
+    html+='<span>第'+k+'類　'+g.name+'　（'+g.score+' 分）</span>';
+    html+='<button type="button" class="btn btn-sm" style="background:rgba(255,255,255,0.25);color:white;border:1px solid rgba(255,255,255,0.5);" onclick="addItemToGroup('+k+')">＋ 新增執事</button>';
+    html+='</div><div class="cat-group-body" id="catbody-'+k+'">';
+    if (!g.items.length) html+='<p class="empty-hint" style="font-size:12px;color:#9CA3AF;padding:6px 0;">尚無執事，點右上角新增</p>';
+    g.items.forEach(function(c){ html+=catItemHtml(c.name,k,sCounter++); });
+    html+='</div></div>';
+  });
+  document.getElementById('settings-table').innerHTML=html;
+}
+
+function catItemHtml(name,catNum,i) {
+  var moveOpts='';
+  [1,2,3,4,5].forEach(function(k){ if(k!==catNum) moveOpts+='<option value="'+k+'">移至第'+k+'類</option>'; });
+  return '<div class="cat-item-row" id="srow-'+i+'">' +
+    '<input type="text" value="'+name+'" id="sn-'+i+'" placeholder="執事名稱" style="flex:1">' +
+    '<select style="width:100px;font-size:11px;padding:4px 6px;border:1.5px solid var(--gray-200);border-radius:6px;" onchange="moveItemToGroup(this,'+i+')">' +
+      '<option value="">── 移至 ──</option>'+moveOpts +
+    '</select>' +
+    '<button type="button" class="btn btn-danger btn-sm" onclick="removeRow(\'srow-'+i+'\')">刪除</button>' +
+    '</div>';
+}
+
+function removeRow(id) { var el=document.getElementById(id); if(el) el.remove(); }
+
+function moveItemToGroup(sel,i) {
+  var newCat=parseInt(sel.value); if(!newCat) return;
+  var row=document.getElementById('srow-'+i); if(!row) return;
+  var name=document.getElementById('sn-'+i).value;
+  row.remove();
+  var body=document.getElementById('catbody-'+newCat);
+  var hint=body.querySelector('.empty-hint'); if(hint) hint.remove();
+  var newI=sCounter++;
+  body.innerHTML+=catItemHtml(name,newCat,newI);
+}
+
+function addItemToGroup(catNum) {
+  var body=document.getElementById('catbody-'+catNum);
+  var hint=body.querySelector('.empty-hint'); if(hint) hint.remove();
+  var i=sCounter++;
+  var div=document.createElement('div'); div.className='cat-item-row'; div.id='srow-'+i;
+  var ni=document.createElement('input'); ni.type='text'; ni.id='sn-'+i; ni.placeholder='執事名稱'; ni.style.flex='1';
+  var mo=document.createElement('select'); mo.style.cssText='width:100px;font-size:11px;padding:4px 6px;border:1.5px solid var(--gray-200);border-radius:6px;';
+  mo.innerHTML='<option value="">── 移至 ──</option>';
+  [1,2,3,4,5].forEach(function(k){ if(k!==catNum) mo.innerHTML+='<option value="'+k+'">移至第'+k+'類</option>'; });
+  mo.onchange=function(){ moveItemToGroup(mo,i); };
+  var db=document.createElement('button'); db.type='button'; db.className='btn btn-danger btn-sm'; db.textContent='刪除'; db.onclick=function(){ div.remove(); };
+  div.appendChild(ni); div.appendChild(mo); div.appendChild(db);
+  body.appendChild(div); ni.focus();
+}
+
+async function saveSettings() {
+  const btn = document.getElementById('save-settings-btn');
+  if (!btn) {
+    alert('找不到儲存按鈕');
+    return;
+  }
+  
+  // 防止重复点击
+  if (btn.disabled) return;
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  btn.textContent = '⏳ 儲存中...';
+  
+  try {
+    // 收集所有分类
+    const cats = [];
+    const CAT_NAMES = {1:'第一類',2:'第二類',3:'第三類',4:'第四類',5:'第五類'};
+    const CAT_SCORES = {1:1,2:2,3:3,4:4,5:5};
+    
+    for (let k = 1; k <= 5; k++) {
+      const body = document.getElementById('catbody-' + k);
+      if (!body) continue;
+      
+      body.querySelectorAll('.cat-item-row').forEach(row => {
+        const nameEl = row.querySelector('input[type="text"]');
+        if (nameEl && nameEl.value.trim()) {
+          cats.push({
+            name: nameEl.value.trim(),
+            categoryNum: k,
+            categoryName: CAT_NAMES[k],
+            score: CAT_SCORES[k]
+          });
+        }
+      });
+    }
+    
+    // 验证
+    if (cats.length === 0) {
+      alert('❌ 錯誤：至少需要一個分類項目');
+      btn.textContent = originalText;
+      btn.disabled = false;
+      return;
+    }
+    
+    // 检查重复
+    const names = cats.map(c => c.name);
+    const uniqueNames = new Set(names);
+    if (names.length !== uniqueNames.size) {
+      alert('❌ 錯誤：有重複的執事項目名稱，請檢查');
+      btn.textContent = originalText;
+      btn.disabled = false;
+      return;
+    }
+    
+    // 发送到后端
+    const data = await apiPost('updateCategories', {categories: cats});
+    
+    if (data.success) {
+      // ✅ 成功：显示统一消息
+      btn.textContent = '✅ 已完成儲存';
+      btn.style.backgroundColor = '#10b981';
+      
+      // 重新加载最新分类
+      const latestData = await apiGet('init');
+      categories = latestData.categories;
+      
+      // 重新渲染界面
+      renderSettings(categories);
+      
+      // 同时更新活动输入页面
+      renderDutyGrid();
+      
+      // 3秒后恢复按钮
+      setTimeout(() => {
+        btn.textContent = originalText;
+        btn.style.backgroundColor = '';
+        btn.disabled = false;
+      }, 3000);
+      
+    } else {
+      throw new Error(data.error || '未知錯誤');
+    }
+    
+  } catch (err) {
+    // ❌ 失败：显示错误
+    console.error('保存失败:', err);
+    btn.textContent = '❌ 儲存失敗';
+    btn.style.backgroundColor = '#ef4444';
+    
+    alert('❌ 儲存失敗：' + err.message + '\n\n請檢查網路連線或重新整理頁面');
+    
+    // 3秒后恢复按钮
+    setTimeout(() => {
+      btn.textContent = originalText;
+      btn.style.backgroundColor = '';
+      btn.disabled = false;
+    }, 3000);
+  }
+}
+
+// ══ 管理紀錄 ══════════════════════════════════════════
+async function loadManage() {
+  document.getElementById('manage-preview').innerHTML='';
+  document.getElementById('manage-alert').innerHTML='';
+  try {
+    manageRecords = await apiGet('records');
+    var names=[]; manageRecords.forEach(function(r){ if(names.indexOf(r.name)<0) names.push(r.name); }); names.sort();
+    var sel=document.getElementById('del-name-sel');
+    sel.innerHTML='<option value="">── 請選擇 ──</option>';
+    names.forEach(function(n){ sel.innerHTML+='<option value="'+n+'">'+n+'</option>'; });
+  } catch(e) {}
+}
+
+function previewByDate() {
+  var from=document.getElementById('del-from').value, to=document.getElementById('del-to').value;
+  if (!from||!to) { showAlert('manage-alert','error','請選擇開始和結束日期'); return; }
+  renderPreview(manageRecords.filter(function(r){ return r.date>=from&&r.date<=to; }),'日期 '+from+' 至 '+to);
+}
+function previewByName() {
+  var name=document.getElementById('del-name-sel').value;
+  if (!name) { showAlert('manage-alert','error','請選擇義工'); return; }
+  renderPreview(manageRecords.filter(function(r){ return r.name===name; }),name+' 的所有紀錄');
+}
+
+function renderPreview(filtered,label) {
+  previewFiltered=filtered.slice();
+  var preview=document.getElementById('manage-preview');
+  if (!filtered.length) { preview.innerHTML='<div class="alert alert-info">查無符合條件的紀錄</div>'; return; }
+  var html='<div class="alert alert-info">找到 <strong>'+filtered.length+'</strong> 筆符合「'+label+'」的紀錄</div>';
+  html+='<div class="table-wrap"><table><thead><tr><th>姓名</th><th>活動日期</th><th>執事項目</th><th>分數</th><th>操作</th></tr></thead><tbody>';
+  filtered.forEach(function(r,idx){ html+='<tr id="prow-'+idx+'"><td>'+r.name+'</td><td>'+r.date+'</td><td>'+r.item+'</td><td>'+r.score+'</td><td><button type="button" class="btn btn-danger" onclick="deleteSingle('+idx+')">刪除</button></td></tr>'; });
+  html+='</tbody></table></div>';
+  html+='<div style="margin-top:14px;display:flex;gap:8px;align-items:center;"><button type="button" class="btn btn-danger" id="btn-del-all" onclick="doDeleteAll()">🗑️ 全部刪除（'+filtered.length+' 筆）</button><span style="font-size:12px;color:var(--gray-500);">刪除後無法復原</span></div>';
+  preview.innerHTML=html;
+}
+
+async function deleteSingle(idx) {
+  var r=previewFiltered[idx]; if(!r) return;
+  if (!confirm('確定刪除「'+r.name+' / '+r.date+' / '+r.item+'」？')) return;
+  try {
+    const res=await apiPost('deleteRecords',{ids:[r.id]});
+    if (res.deleted>0) {
+      showAlert('manage-alert','success','✅ 已刪除 1 筆');
+      var row=document.getElementById('prow-'+idx); if(row) row.remove();
+      previewFiltered[idx]=null;
+      var remaining=previewFiltered.filter(function(x){ return x!==null; }).length;
+      var btn=document.getElementById('btn-del-all'); if(btn) btn.textContent='🗑️ 全部刪除（'+remaining+' 筆）';
+      manageRecords=manageRecords.filter(function(x){ return x.id!==r.id; });
+    }
+  } catch(e) { showAlert('manage-alert','error','刪除失敗：'+e.message); }
+}
+
+async function doDeleteAll() {
+  var ids=previewFiltered.filter(function(r){ return r!==null; }).map(function(r){ return r.id; });
+  if (!ids.length) return;
+  if (!confirm('確定要刪除全部 '+ids.length+' 筆紀錄嗎？此操作無法復原。')) return;
+  document.getElementById('manage-preview').innerHTML='<div class="loading"><div class="spinner"></div>刪除中…</div>';
+  try {
+    const res=await apiPost('deleteRecords',{ids});
+    showAlert('manage-alert','success','✅ 已成功刪除 '+res.deleted+' 筆紀錄');
+    loadManage();
+  } catch(e) { showAlert('manage-alert','error','刪除失敗：'+e.message); }
+}
+
+// ══ 啟動 ══════════════════════════════════════════════
+init();
+</script>
+</body>
+</html>
