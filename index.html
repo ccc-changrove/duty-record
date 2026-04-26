@@ -220,7 +220,46 @@
 // ══ 設定 API 網址 ══════════════════════════════════════
 const API_URL = 'https://script.google.com/macros/s/AKfycbz876tMU2W_-dEA4I39x6yKcKmaYVlFBZj3ATk4hBHzammbXCBHMHXiSqP-_hL91DAi/exec';
 
-// ══ API 呼叫工具 ══════════════════════════════════════
+// ══ API 呼叫工具（带重试机制 + POST 支持）══════════════
+async function apiCallWithRetry(method, action, params, retries = 2) {
+  for (var attempt = 0; attempt <= retries; attempt++) {
+    try {
+      let response;
+      
+      // ⭐️ 特殊处理：updateCategories 用 POST
+      if (action === 'updateCategories') {
+        const formData = new URLSearchParams();
+        formData.append('action', action);
+        Object.keys(params).forEach(k => {
+          formData.append(k, typeof params[k] === 'object' ? JSON.stringify(params[k]) : params[k]);
+        });
+        
+        response = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: formData.toString(),
+          cache: 'no-cache'
+        });
+        
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        return data;
+      } else {
+        // 其他操作用 JSONP（保持兼容）
+        return await jsonp(action, params);
+      }
+      
+    } catch(e) {
+      if (attempt === retries) throw e;
+      var wait = 1500 * (attempt + 1);
+      console.warn('⚠️ 第' + (attempt+1) + '次失败，' + wait + 'ms 后重试…', e.message);
+      await new Promise(r => setTimeout(r, wait));
+    }
+  }
+}
+
+// ══ 原有的 JSONP 函数（保留兼容）═════════════════════
 function jsonp(action, params) {
   return new Promise(function(resolve, reject) {
     var cbName = '_cb' + Date.now() + Math.floor(Math.random()*1000);
@@ -244,8 +283,14 @@ function jsonp(action, params) {
     document.head.appendChild(script);
   });
 }
-async function apiGet(action, params) { return jsonp(action, params); }
-async function apiPost(action, payload) { return jsonp(action, payload); }
+
+async function apiGet(action, params) { 
+  return apiCallWithRetry('GET', action, params); 
+}
+
+async function apiPost(action, payload) { 
+  return apiCallWithRetry('POST', action, payload); 
+}
 
 // ══ 全域狀態 ══════════════════════════════════════════
 var categories = [], allScores = {}, detailRows = [], manageRecords = [], previewFiltered = [];
@@ -532,6 +577,7 @@ function addItemToGroup(catNum) {
   body.appendChild(div); ni.focus();
 }
 
+// ⭐️ 修改后的 saveSettings（使用 POST + 自动重试）
 async function saveSettings() {
   const btn = document.getElementById('save-settings-btn');
   if (!btn) {
@@ -539,14 +585,12 @@ async function saveSettings() {
     return;
   }
   
-  // 防止重复点击
   if (btn.disabled) return;
   btn.disabled = true;
   const originalText = btn.textContent;
   btn.textContent = '⏳ 儲存中...';
   
   try {
-    // 收集所有分类
     const cats = [];
     const CAT_NAMES = {1:'第一類',2:'第二類',3:'第三類',4:'第四類',5:'第五類'};
     const CAT_SCORES = {1:1,2:2,3:3,4:4,5:5};
@@ -568,7 +612,6 @@ async function saveSettings() {
       });
     }
     
-    // 验证
     if (cats.length === 0) {
       alert('❌ 錯誤：至少需要一個分類項目');
       btn.textContent = originalText;
@@ -576,7 +619,6 @@ async function saveSettings() {
       return;
     }
     
-    // 检查重复
     const names = cats.map(c => c.name);
     const uniqueNames = new Set(names);
     if (names.length !== uniqueNames.size) {
@@ -586,25 +628,23 @@ async function saveSettings() {
       return;
     }
     
-    // 发送到后端
+    console.log('📊 准备保存 ' + cats.length + ' 个分类...');
+    
+    // ⭐️ 使用改进的 apiPost（自动使用 POST + 重试）
     const data = await apiPost('updateCategories', {categories: cats});
     
     if (data.success) {
-      // ✅ 成功：显示统一消息
       btn.textContent = '✅ 已完成儲存';
       btn.style.backgroundColor = '#10b981';
       
-      // 重新加载最新分类
+      console.log('✅ 保存成功！');
+      
       const latestData = await apiGet('init');
       categories = latestData.categories;
       
-      // 重新渲染界面
       renderSettings(categories);
-      
-      // 同时更新活动输入页面
       renderDutyGrid();
       
-      // 3秒后恢复按钮
       setTimeout(() => {
         btn.textContent = originalText;
         btn.style.backgroundColor = '';
@@ -616,14 +656,12 @@ async function saveSettings() {
     }
     
   } catch (err) {
-    // ❌ 失败：显示错误
-    console.error('保存失败:', err);
+    console.error('❌ 保存失败:', err);
     btn.textContent = '❌ 儲存失敗';
     btn.style.backgroundColor = '#ef4444';
     
-    alert('❌ 儲存失敗：' + err.message + '\n\n請檢查網路連線或重新整理頁面');
+    alert('❌ 儲存失敗：' + err.message + '\n\n請：\n1. 檢查網路連線\n2. 按 F12 查看詳細錯誤\n3. 清除瀏覽器快取後重試');
     
-    // 3秒后恢复按钮
     setTimeout(() => {
       btn.textContent = originalText;
       btn.style.backgroundColor = '';
