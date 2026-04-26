@@ -224,36 +224,25 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbz876tMU2W_-dEA4I39x6yK
 async function apiCallWithRetry(method, action, params, retries = 2) {
   for (var attempt = 0; attempt <= retries; attempt++) {
     try {
-      let response;
-      
-      // ⭐️ 特殊处理：updateCategories 用 POST
       if (action === 'updateCategories') {
-        const formData = new URLSearchParams();
-        formData.append('action', action);
-        Object.keys(params).forEach(k => {
-          formData.append(k, typeof params[k] === 'object' ? JSON.stringify(params[k]) : params[k]);
-        });
-        
-        response = await fetch(API_URL, {
+        // text/plain 是 CORS 簡單請求，不觸發 preflight
+        // JSON body 完整傳到 doPost，不受 URL 長度限制
+        const response = await fetch(API_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: formData.toString(),
-          cache: 'no-cache'
+          headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+          body: JSON.stringify(Object.assign({ action }, params)),
         });
-        
         if (!response.ok) throw new Error('HTTP ' + response.status);
         const data = await response.json();
         if (data.error) throw new Error(data.error);
         return data;
-      } else {
-        // 其他操作用 JSONP（保持兼容）
-        return await jsonp(action, params);
       }
-      
+      // 其他所有操作繼續走 JSONP
+      return await jsonp(action, params);
     } catch(e) {
       if (attempt === retries) throw e;
       var wait = 1500 * (attempt + 1);
-      console.warn('⚠️ 第' + (attempt+1) + '次失败，' + wait + 'ms 后重试…', e.message);
+      console.warn('⚠️ 第' + (attempt + 1) + '次失敗，' + wait + 'ms 後重試…', e.message);
       await new Promise(r => setTimeout(r, wait));
     }
   }
