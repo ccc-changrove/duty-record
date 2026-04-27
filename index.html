@@ -224,20 +224,6 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbz876tMU2W_-dEA4I39x6yK
 async function apiCallWithRetry(method, action, params, retries = 2) {
   for (var attempt = 0; attempt <= retries; attempt++) {
     try {
-      if (action === 'updateCategories') {
-        // text/plain 是 CORS 簡單請求，不觸發 preflight
-        // JSON body 完整傳到 doPost，不受 URL 長度限制
-        const response = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-          body: JSON.stringify(Object.assign({ action }, params)),
-        });
-        if (!response.ok) throw new Error('HTTP ' + response.status);
-        const data = await response.json();
-        if (data.error) throw new Error(data.error);
-        return data;
-      }
-      // 其他所有操作繼續走 JSONP
       return await jsonp(action, params);
     } catch(e) {
       if (attempt === retries) throw e;
